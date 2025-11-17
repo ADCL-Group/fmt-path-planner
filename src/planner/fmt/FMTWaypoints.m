@@ -1,0 +1,60 @@
+function [traj, Ecell, Vcell] = FMTWaypoints(map3D, limits, wpts, N, rn, goalRadius, w, flightParams)
+    % Run FMT* over a sequence of waypoints
+
+    if nargin < 7
+        w = 0;
+    end
+
+    d = size(limits,1);
+    M = size(wpts,1);
+    numSeg = M - 1;
+
+    trajAll = [];
+    Ecell = cell(numSeg,1);
+    Vcell = cell(numSeg,1);
+
+    if isscalar(goalRadius)
+        goalR = repmat(goalRadius, numSeg, 1);
+    else
+        goalR = goalRadius;
+    end
+
+    start = wpts(1,:);
+    for i = 1:numSeg
+        goal  = wpts(i+1,:);
+        try
+            if nargin == 8
+                [traj, E, V] = FMT(map3D, limits, start, goal, N, rn, goalR(i), w, flightParams);
+            else
+                [traj, E, V] = FMT(map3D, limits, start, goal, N, rn, goalR(i), w);
+            end
+        catch ME
+            fprintf("Cannot connect waypoint %d to %d\n",i,i+1);
+            disp(ME.message)
+            traj = wpts(i+1,:);
+            E = [];
+            V = [];
+        end
+        Ecell{i} = E;
+        Vcell{i} = V;
+
+        if i==1
+            % first segment: take entire traj
+            trajAll = traj;
+        else
+            % subsequent: skip duplicate start point
+            trajAll = [trajAll; traj(2:end,:)]; %#ok<AGROW>
+        end
+
+        % Start next segment from the endpoint of the previous one
+        start = traj(end, :);
+    end
+    
+    if d == 3
+        psi = computeHeading(trajAll);
+        traj = [trajAll, psi];
+    elseif d == 4
+        % traj = [trajAll(:,1:3), psi];
+        traj = trajAll;
+    end
+end
