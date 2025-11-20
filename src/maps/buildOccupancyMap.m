@@ -25,15 +25,6 @@ end
 
 cacheFile = fullfile(cacheDir, baseName + ".mat");
 
-% funcFolder = fileparts( mfilename('fullpath') );
-% cacheDir = fullfile(funcFolder, 'mat');
-% if ~exist(cacheDir, 'dir')
-%     mkdir(cacheDir);
-% end
-% 
-% [~, baseName, ~] = fileparts(filename);
-% cacheFile = fullfile(cacheDir, baseName + ".mat");
-
 if isfile(cacheFile)
     S = load(cacheFile, 'result');
     if isfield(S, 'result') && isfield(S.result, 'padding')
@@ -215,25 +206,5 @@ try
 catch
     warning('Could not save cache to %s', cacheFile);
 end
-
-% outputDir = fullfile(funcFolder, 'bt');
-% if ~exist(outputDir, 'dir')
-%     mkdir(outputDir);
-% end
-% 
-% btFile = fullfile(outputDir, baseName+".bt");
-% 
-% try
-%     exportOccupancyMap3D(result.maps{1}, btFile);
-% catch
-%     disp("You must change 'outputfilename' or delete the existing file to save changes");
-% end
-% 
-% try
-%     save(cacheFile, 'result');
-% catch
-%     warning('Could not save cache to %s', cacheFile);
-% end
-
 
 end
