@@ -1,4 +1,4 @@
-function [smoothWaypointsObj, isStuck] = skipForward(ss,conn, map, pthObj,targets,goalRadius)
+function [smoothWaypointsObj, isStuck] = skipForward(ss,conn, map, pthObj,targets,goalRadius, anObst)
 % Based on exampleHelperUavPathSmoothing from the Motion Planning with RRT 
 % for Fixed-Wing UAV Example from MATLAB.
 % It has a startNode that remains fixed and then loops forward to search
@@ -20,7 +20,7 @@ function [smoothWaypointsObj, isStuck] = skipForward(ss,conn, map, pthObj,target
         return
     end
 
-    validStates = isStateValid( map, waypts(:,1:4) );
+    validStates = isStateValid( map, waypts(:,1:4), anObst );
     if any(~validStates)
         % If any single state is invalid, we cannot shorten
         warning('One or more input waypoints are invalid.');
@@ -61,7 +61,7 @@ function [smoothWaypointsObj, isStuck] = skipForward(ss,conn, map, pthObj,target
     endNode = startNode + 1;
     while(endNode <= M)
         % try connecting startNode to endNode
-        valid = isTrajValid(conn, map, waypts(startNode,:), waypts(endNode,:));
+        valid = isTrajValid(conn, map, waypts(startNode,:), waypts(endNode,:),anObst);
         if valid
             % we can go directly from startNode to endNode
             endNode = endNode + 1; % try to skip even further

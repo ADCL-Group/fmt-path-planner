@@ -1,4 +1,4 @@
-function [trajSmooth, speed] = smoothTrajectory(flightParams, bounds, planMap, rawTraj, wpts, goalRadius)
+function [trajSmooth, waypoints, speed] = smoothTrajectory(flightParams, bounds, planMap, rawTraj, wpts, goalRadius,anObst)
     % Smooth and interpolate a 4D UAV path using Dubins smoothing
     
     bounds(4,:) = [-pi, pi];
@@ -20,13 +20,13 @@ function [trajSmooth, speed] = smoothTrajectory(flightParams, bounds, planMap, r
     % sv.ValidationDistance = 0.5;
 
     % Iterative Dubins‐based smoothing from start to end
-    [shortPathFwd, isStuckFwd] = skipForward(ss, conn, planMap, rawTraj, wpts, goalRadius);
+    [shortPathFwd, isStuckFwd] = skipForward(ss, conn, planMap, rawTraj, wpts, goalRadius,anObst);
 
     if ~isStuckFwd
         shortPath = shortPathFwd;
     else
          % Iterative Dubins‐based smoothing from end to start
-        [shortPathBack, isStuckBack] = skipBack(ss, conn, planMap, rawTraj, wpts, goalRadius);
+        [shortPathBack, isStuckBack] = skipBack(ss, conn, planMap, rawTraj, wpts, goalRadius,anObst);
         if ~isStuckBack
             shortPath = shortPathBack;
         else
@@ -40,7 +40,8 @@ function [trajSmooth, speed] = smoothTrajectory(flightParams, bounds, planMap, r
     end
 
     % Determine if there are loops
-    [trajSmooth, speed] = smartInterpolation(flightParams, shortPath.States, ss, 2000);
+    [trajSmooth, speed] = smartInterpolation(flightParams, shortPath.States, ss, 5000);
+    waypoints = shortPath.States;
 end
 
 function [interpStates, speed] = smartInterpolation(flightParams, wpts, ss, numStates)

@@ -1,4 +1,4 @@
-function [smoothWaypointsObj, isStuck] = skipBack(ss, conn, map, pthObj, targets, goalRadius)
+function [smoothWaypointsObj, isStuck] = skipBack(ss, conn, map, pthObj, targets, goalRadius, anObst)
 % Skip redundant waypoints using backward‐search shortcut. Basically has a
 % startNode that remains fixed and then loops backward (from the endNode) 
 % to search the farthest end that can be connected. Once a valid jump is 
@@ -20,7 +20,7 @@ function [smoothWaypointsObj, isStuck] = skipBack(ss, conn, map, pthObj, targets
         return
     end
 
-    validStates = isStateValid( map, waypts(:,1:4) );
+    validStates = isStateValid( map, waypts(:,1:4), anObst );
     if any(~validStates)
         % If any single state is invalid, we cannot shorten
         warning('One or more input waypoints are invalid.');
@@ -62,7 +62,7 @@ function [smoothWaypointsObj, isStuck] = skipBack(ss, conn, map, pthObj, targets
         endNode = size(waypts,1);
         while endNode > startNode+1
             % try connecting startNode to endNode
-            if isTrajValid(conn, map, waypts(startNode,:), waypts(endNode,:))
+            if isTrajValid(conn, map, waypts(startNode,:), waypts(endNode,:), anObst)
                 % we can go directly from startNode to endNode
                 break;
             end
@@ -70,7 +70,7 @@ function [smoothWaypointsObj, isStuck] = skipBack(ss, conn, map, pthObj, targets
             endNode = endNode - 1;
         end
 
-        if endNode == startNode+1 && ~isTrajValid(conn, map, waypts(startNode,:), waypts(endNode,:))
+        if endNode == startNode+1 && ~isTrajValid(conn, map, waypts(startNode,:), waypts(endNode,:), anObst)
             warning('Cannot connect waypoints. Aborting backward‐skip.');
             isStuck = true;
             break;

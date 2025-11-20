@@ -1,4 +1,4 @@
-function nodes = sampleFree(map3D, limits, start, goal, N)
+function nodes = sampleFree(map3D, limits, start, goal, N, anObst)
 % Function that returns a set of N points sampled independently and 
 % identically from the uniform distribution on Xfree
 
@@ -19,9 +19,21 @@ function nodes = sampleFree(map3D, limits, start, goal, N)
         M = batchSize;
         randUniform = rand(M, d);
 
-        pts = zeros(M, d);
-        for i = 1:d
-            pts(:,i) = spanVals(i)*randUniform(:,i) + limits(i,1);
+        % pts = zeros(M, d);
+        % for i = 1:d
+        %     pts(:,i) = spanVals(i)*randUniform(:,i) + limits(i,1);
+        % end
+        pts = randUniform .* spanVals.' + limits(:, 1).';
+
+        % Analytical obstacles first (fast reject)
+        if ~isempty(anObst)
+            insideAna = isInsideObstacles(pts(:, 1:3), anObst);  % M x 1 logical
+            pts = pts(~insideAna, :);  % keep only those NOT in analytic obstacles
+        end
+
+        % If everything was inside analytic obstacles, resample
+        if isempty(pts)
+            continue;
         end
 
         % Check if the candidate nodes are free space
@@ -41,3 +53,5 @@ function nodes = sampleFree(map3D, limits, start, goal, N)
     % Add start, goal and the N samples
     nodes = [ start; samples; goal ];
 end
+
+

@@ -1,4 +1,4 @@
-function [traj, Ecell, Vcell] = FMTWaypoints(map3D, limits, wpts, N, rn, goalRadius, w, flightParams)
+function [traj, Ecell, Vcell] = FMTWaypoints(map3D, limits, wpts, N, rn, goalRadius, w, flightParams, anObst)
     % Run FMT* over a sequence of waypoints
 
     if nargin < 7
@@ -23,10 +23,10 @@ function [traj, Ecell, Vcell] = FMTWaypoints(map3D, limits, wpts, N, rn, goalRad
     for i = 1:numSeg
         goal  = wpts(i+1,:);
         try
-            if nargin == 8
-                [traj, E, V] = FMT(map3D, limits, start, goal, N, rn, goalR(i), w, flightParams);
+            if nargin >= 8
+                [traj, E, V] = FMT(map3D, limits, start, goal, N, rn, goalR(i), w, flightParams, anObst);
             else
-                [traj, E, V] = FMT(map3D, limits, start, goal, N, rn, goalR(i), w);
+                [traj, E, V] = FMT(map3D, limits, start, goal, N, rn, goalR(i), w, anObst);
             end
         catch ME
             fprintf("Cannot connect waypoint %d to %d\n",i,i+1);
