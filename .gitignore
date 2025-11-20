@@ -1,0 +1,8 @@
+*.slxc
+slprj/
+*.asv
+*.png
+data/bt/*.bt
+data/osm/*.osm
+!data/osm/boston.osm
+data/mat/*.mat
