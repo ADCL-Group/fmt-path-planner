@@ -2,6 +2,10 @@ function nodes = sampleFree(map3D, limits, start, goal, N, anObst)
 % Function that returns a set of N points sampled independently and 
 % identically from the uniform distribution on Xfree
 
+    if nargin < 6 || isempty(anObst)
+        anObst = [];   % default: no analytical obstacles
+    end
+
     batchSize = max(100, N);
     d = size(limits,1);
     

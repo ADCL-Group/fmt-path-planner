@@ -1,4 +1,15 @@
 function [traj, E, V] = FMT(map, limits, start, goal, N, rn, goalRadius, w, flightParams, anObst)
+
+    if nargin < 10 || isempty(anObst)
+        anObst = [];           % default: no analytic obstacles
+    end
+    if nargin < 9 || isempty(flightParams)
+        flightParams = [];     % default: no Dubins, straight-line
+    end
+    if nargin < 8 || isempty(w)
+        w = 0;                 % default: zero weight
+    end
+
     % Fast Marching Tree Algorithm (FMT∗)
     V = sampleFree(map, limits, start, goal, N, anObst);
     allIdx  = 1:size(V,1);
@@ -25,7 +36,7 @@ function [traj, E, V] = FMT(map, limits, start, goal, N, rn, goalRadius, w, flig
     vertexStore.neighbors{start_idx} = Nz_idx;
     vertexStore.cost(start_idx) = 0;
 
-    if nargin >= 9 && ~isempty(flightParams)
+    if ~isempty(flightParams)
         % Create the Dubins connector
         conn = uavDubinsConnection( ...
             'MaxRollAngle', flightParams(1), ...
@@ -118,7 +129,6 @@ function [traj, E, V] = FMT(map, limits, start, goal, N, rn, goalRadius, w, flig
     end
     
     % Build the tree
-
     childIdx = find(vertexStore.parent > 0); % Find all vertex xi that got a parent
     E = [vertexStore.parent(childIdx), childIdx];
     
