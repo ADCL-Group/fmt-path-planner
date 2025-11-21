@@ -3,15 +3,11 @@ function inside = isInsideObstacles(points, obstacles)
 % obstacles : M x 8  matrix of analytic obstacles:
 %   [x1, y1, z1,   x2, y2, z2,   radius, type]
 %
-%   type = 0 -> finite cylinder / capsule along segment P1->P2
+%   type = 0 -> finite cylinder along segment P1->P2
 %              (vertical or inclined; radius is constant)
 %   type = 1 -> sphere, center = (x1,y1,z1), radius in col 7
 %
 % inside(i) : true if point i is inside at least one obstacle
-
-    % if isvector(points) && numel(points) == 3
-    %     points = reshape(points, 1, 3);
-    % end
 
     N = size(points, 1);
     inside = false(N, 1);
@@ -52,7 +48,7 @@ function inside = isInsideObstacles(points, obstacles)
         inside = inside | insideSpheres;
     end
 
-    % Cylinders (z in [0, zmax])
+    % Cylinders
     if any(isCyl)
         cylObs  = obstacles(isCyl, :);      % Nc x 8
 
@@ -66,7 +62,7 @@ function inside = isInsideObstacles(points, obstacles)
 
         R  = cylObs(:, 7).';   % radii, 1 x Nc
 
-        % Vectors AB (segment direction)
+        % Cylinder axis vector AB
         ABx = Bx - Ax;         % 1 x Nc
         ABy = By - Ay;
         ABz = Bz - Az;
@@ -75,12 +71,12 @@ function inside = isInsideObstacles(points, obstacles)
 
         % For each point P, compute projection on each segment
         % AP = P - A
-        APx = X - Ax;          % N x Nc (implicit expansion)
+        APx = X - Ax;          % N x Nc
         APy = Y - Ay;
         APz = Z - Az;
 
         t = (APx .* ABx + APy .* ABy + APz .* ABz) ./ AB2;  % N x Nc
-        t = max(0, min(1, t));
+        onSegment = (t >= 0) & (t <= 1);
 
         % Closest point C = A + t * AB
         % Vector from P to C: PC = AP - t*AB
@@ -90,27 +86,8 @@ function inside = isInsideObstacles(points, obstacles)
 
         dist2_PC = PCx.^2 + PCy.^2 + PCz.^2;     % N x Nc
 
-        insideCapsules = any(dist2_PC <= R.^2, 2);  % N x 1
+        insideCyl = onSegment & dist2_PC <= R.^2;  % N x Nc
 
-        inside = inside | insideCapsules;
-
-        % cx_c    = cylObs(:, 1).';           % 1 x Nc
-        % cy_c    = cylObs(:, 2).';           % 1 x Nc
-        % zmax_c  = cylObs(:, 3).';           % 1 x Nc
-        % r_c     = cylObs(:, 4).';           % 1 x Nc
-        % 
-        % dx = X - cx_c;                      % N x Nc
-        % dy = Y - cy_c;                      % N x Nc
-        % 
-        % dist2_xy = dx.^2 + dy.^2;           % N x Nc
-        % inCircle = dist2_xy <= r_c.^2;      % N x Nc
-        % 
-        % % Height: z in [0, zmax]
-        % % Z: N x 1, zmax_c: 1 x Nc -> N x Nc via implicit expansion
-        % inHeight = (Z >= 0) & (Z <= zmax_c);
-        % 
-        % insideCylinders = any(inCircle & inHeight, 2);  % N x 1
-        % 
-        % inside = inside | insideCylinders;
+        inside = inside | any(insideCyl, 2);
     end
 end
