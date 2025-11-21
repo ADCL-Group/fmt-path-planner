@@ -1,9 +1,13 @@
-function [smoothWaypointsObj, isStuck] = skipBack(ss, conn, map, pthObj, targets, goalRadius, anObst)
+function [smoothWaypointsObj, isStuck, interpStatesAll] = skipBack(ss, conn, map, pthObj, targets, goalRadius, anObst)
 % Skip redundant waypoints using backward‐search shortcut. Basically has a
 % startNode that remains fixed and then loops backward (from the endNode) 
 % to search the farthest end that can be connected. Once a valid jump is 
 % found, the startNode is updated to the new waypoint and repeats the 
 % process.
+
+    if nargin < 7 || isempty(anObst)
+        anObst = [];   % default: no analytical obstacles
+    end
     
     if isa(pthObj,'navPath')
         waypts = pthObj.States;
@@ -17,6 +21,7 @@ function [smoothWaypointsObj, isStuck] = skipBack(ss, conn, map, pthObj, targets
     if M < 3
         smoothWaypointsObj = navPath(ss);
         append(smoothWaypointsObj, waypts);
+        interpStatesAll = waypts;
         return
     end
 
@@ -26,6 +31,7 @@ function [smoothWaypointsObj, isStuck] = skipBack(ss, conn, map, pthObj, targets
         warning('One or more input waypoints are invalid.');
         smoothWaypointsObj = navPath(ss);
         append(smoothWaypointsObj, waypts);
+        interpStatesAll = waypts;
         return
     end
 
@@ -57,25 +63,44 @@ function [smoothWaypointsObj, isStuck] = skipBack(ss, conn, map, pthObj, targets
 
     % isStateSkipped([1, end]) = false;
 
+    interpStatesAll = [];
+    firstSegment    = true;
+
     startNode = 1;
-    while startNode < size(waypts,1)
-        endNode = size(waypts,1);
+    while startNode < M
+        endNode = M;
+        chosenInterp = [];
+        found = false;
+
         while endNode > startNode+1
             % try connecting startNode to endNode
-            if isTrajValid(conn, map, waypts(startNode,:), waypts(endNode,:), anObst)
+            [valid, ~, intposes] = isTrajValid(conn, map, waypts(startNode,:), waypts(endNode,:), anObst);
+            
+            if valid
                 % we can go directly from startNode to endNode
+                found = true;
+                chosenInterp = intposes;
                 break;
             end
             % that skip is not possible, reduce the skip
             endNode = endNode - 1;
         end
 
-        if endNode == startNode+1 && ~isTrajValid(conn, map, waypts(startNode,:), waypts(endNode,:), anObst)
+        if endNode == startNode+1 && ~found
             warning('Cannot connect waypoints. Aborting backward‐skip.');
             isStuck = true;
             break;
         end
 
+        if firstSegment
+            % Include the first point
+            interpStatesAll = [interpStatesAll; chosenInterp];
+            firstSegment = false;
+        else
+            % Skip the first state to avoid duplicating joint node
+            interpStatesAll = [interpStatesAll; chosenInterp(2:end,:)];
+        end
+        
         isStateSkipped(endNode) = false; % keep that waypoint
         startNode = endNode; % move start forward
     end

@@ -1,9 +1,13 @@
-function [smoothWaypointsObj, isStuck] = skipForward(ss,conn, map, pthObj,targets,goalRadius, anObst)
+function [smoothWaypointsObj, isStuck, interpStatesAll] = skipForward(ss,conn, map, pthObj,targets,goalRadius, anObst)
 % Based on exampleHelperUavPathSmoothing from the Motion Planning with RRT 
 % for Fixed-Wing UAV Example from MATLAB.
 % It has a startNode that remains fixed and then loops forward to search
 % the farthest end that can be connected. Once a valid jump is found, the
 % startNode is updated to the new waypoint and repeats the process.
+
+    if nargin < 7 || isempty(anObst)
+        anObst = [];   % default: no analytical obstacles
+    end
     
     if isa(pthObj,'navPath')
         waypts = pthObj.States;
@@ -17,6 +21,7 @@ function [smoothWaypointsObj, isStuck] = skipForward(ss,conn, map, pthObj,target
     if M < 3
         smoothWaypointsObj = navPath(ss);
         append(smoothWaypointsObj, waypts);
+        interpStatesAll = waypts;
         return
     end
 
@@ -26,6 +31,7 @@ function [smoothWaypointsObj, isStuck] = skipForward(ss,conn, map, pthObj,target
         warning('One or more input waypoints are invalid.');
         smoothWaypointsObj = navPath(ss);
         append(smoothWaypointsObj, waypts);
+        interpStatesAll = waypts;
         return
     end
     
@@ -57,13 +63,20 @@ function [smoothWaypointsObj, isStuck] = skipForward(ss,conn, map, pthObj,target
 
     % isStateSkipped([1, end]) = false;
 
+    interpStatesAll = [];
+    firstSegment    = true;
+
+    lastValidInterp   = [];
+
     startNode = 1;
     endNode = startNode + 1;
     while(endNode <= M)
         % try connecting startNode to endNode
-        valid = isTrajValid(conn, map, waypts(startNode,:), waypts(endNode,:),anObst);
+        [valid, ~, intposes] = isTrajValid(conn, map, waypts(startNode,:), waypts(endNode,:),anObst);
+
         if valid
             % we can go directly from startNode to endNode
+            lastValidInterp  = intposes;
             endNode = endNode + 1; % try to skip even further
         else
             % that skip is not possible
@@ -75,7 +88,34 @@ function [smoothWaypointsObj, isStuck] = skipForward(ss,conn, map, pthObj,target
             end
             isStateSkipped(endNode-1) = false;
             startNode = endNode - 1; % reset the start to last good node
+
+            % We know the last valid jump is startNode -> lastValidEndNode.
+            % Append its interpolation to the full trajectory.
+            if ~isempty(lastValidInterp)
+                if firstSegment
+                    % Include first point only once
+                    interpStatesAll = [interpStatesAll; lastValidInterp];
+                    firstSegment = false;
+                else
+                    % Skip the first state to avoid duplicating the junction
+                    interpStatesAll = [interpStatesAll; lastValidInterp(2:end,:)];
+                end
+            end
+
         end
+    end
+
+    % If we exited because endNode > M, we may still have a pending valid jump
+    if ~isStuck && ~isempty(lastValidInterp)
+        if firstSegment
+            interpStatesAll = [interpStatesAll; lastValidInterp];
+        else
+            interpStatesAll = [interpStatesAll; lastValidInterp(2:end,:)];
+        end
+    end
+
+    if isempty(interpStatesAll)
+        interpStatesAll = waypts;
     end
     
     % wrap into a navPath to match MATLAB API

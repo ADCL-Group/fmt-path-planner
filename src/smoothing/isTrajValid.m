@@ -1,4 +1,9 @@
-function [isValid, dist] = isTrajValid(conn, map, state1, state2, anObst)
+function [isValid, dist, interp] = isTrajValid(conn, map, state1, state2, anObst)
+
+    if nargin < 5 || isempty(anObst)
+        anObst = [];   % default: no analytical obstacles
+    end
+
     % Create a Dubins path
     uavDubPathSeg=connect(conn,state1,state2);
     dist = uavDubPathSeg{1}.Length;
@@ -14,7 +19,7 @@ function [isValid, dist] = isTrajValid(conn, map, state1, state2, anObst)
     % alpha = [0:interval:1 1];
 
     % sampleDists=alpha*dist;
-    maxStep = 10;   % max spacing between samples [meters] – tune this!
+    maxStep = 10;   % max spacing between samples [meters]
     nSamples = max( ceil(dist/maxStep) + 1, 3 );  % at least 3 points
 
     sampleDists = linspace(0, dist, nSamples);
@@ -39,9 +44,6 @@ function [isValid, dist] = isTrajValid(conn, map, state1, state2, anObst)
     % interpValid = ~isOccupied;
     occValid = isOccupied < map.FreeThreshold;
 
-    % insideCyl  = insideCylinders(intposes); % Mx1 logical
-    % cylValid   = ~insideCyl;
-
     interpValid = occValid;% & cylValid;
 
     % Find the first invalid index. Note that the maximum non-empty
@@ -52,8 +54,10 @@ function [isValid, dist] = isTrajValid(conn, map, state1, state2, anObst)
     if isempty(firstInvalidIdx)
         % The whole motion is valid
         isValid = true;
+        interp = intposes;
     else
         isValid = false;
         dist = Inf;
+        interp = [];
     end
 end
