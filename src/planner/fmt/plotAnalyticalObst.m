@@ -86,14 +86,6 @@ function h = plotAnalyticalObst(obstacles)
 
                 h(i) = surf(X, Y, Z);
 
-                % % z from 0 to cz (actually cz = zmax)
-                % [X,Y,Z] = cylinder(r, 40);
-                % Z = Z * cz;     % scale height
-                % X = X + cx;
-                % Y = Y + cy;
-                % 
-                % h(i) = surf(X,Y,Z);
-
             otherwise
                 warning('Unknown obstacle type %d at row %d', type, i);
         end
