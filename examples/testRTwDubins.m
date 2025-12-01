@@ -9,21 +9,40 @@ mapLimits = result.mapLimits;
 limits = [mapLimits; 0 2*pi];
 
 start = [ 828 7 155 ];
+wpt1  = [ 694 200 170 ];
+wpt2  = [ 453 595 205 ];
+wpt3  = [ 100 641 222 ];
+wpt4  = [ -290 590 225 ];
+wpt5  = [ -440 250 200 ];
 goal = [ -600 -600 120 ];
 
-N = 5000;
+kts2ms = 1/1.94384001;
+MaxRollAngle         = 35*pi/180;
+AirSpeed             = 100*kts2ms;
+FlightPathAngleLimit = [-10, 10]*pi/180;
 
-rn = optimalRadius(N+2, limits(1:3,:)); % radius to find neighbors
+flightParams = [MaxRollAngle, AirSpeed, FlightPathAngleLimit];
+
+g = 9.81;
+w = AirSpeed^2/(g*tan(MaxRollAngle));
+
+wpts = [start; wpt1; wpt2; wpt3; wpt4; wpt5; goal];
+wpts(:,4) = computeHeading(wpts);
+
+N = 100;
+
+rn = optimalRadius(N+2, limits, w); % radius to find neighbors
 goalRadius = rn/2; % radius of the goal area around the goal wpt
 
 %%
 close all; clc
 
 rng(1,"twister");
-planner = rt_fmt_planner(map, limits(1:3,:), start, goal, rn, ...
+planner = rt_fmt_planner(map, limits(1:4,:), wpts(1,:), wpts(end,:), rn, ...
+    'flightParams', flightParams, ...
     'N', N, ...
-    'w', 0, ...
-    'expandTreeRate', 32, ...
+    'w', w, ...
+    'expandTreeRate', 64, ...
     'safeRadiusDObstacle', 100, ...
     'goalRadius', goalRadius);
 
@@ -32,68 +51,22 @@ hold on; grid on; axis equal
 hTree = plot3(NaN,NaN,NaN,'r-','LineWidth',1);    % current planned (spliced) path
 hTrail= plot3(NaN,NaN,NaN,'g-','LineWidth',2);    % committed trail
 hPos  = plot3(NaN,NaN,NaN,'ko','MarkerFaceColor','y','MarkerSize',6);
+hDubins  = plot3(NaN,NaN,NaN,'r-','LineWidth',2);    % Dubins trail
+dubinsTrail = zeros(0,3);
 
 % simulation/stepper state
-q_now = start; % current pose      
+q_now = wpts(1,:); % current pose      
 trail = q_now; % committed path
 tree = []; % proposed local path
 
 maxIters = 1000;
 
-% Dynamic obstacles [x,y,z]
-dynamicObstacles = [-260, -490, 150;  % obstacle 1
-                    470 0 150;  % obstacle 2
-                    110 300 150];  % obstacle 3
-% dynamicObstacles = [];
-
-% [vx,vy,vz]
-speed = [ 0   0  15; % obstacle 1
-          10 0 0; % obstacle 2
-          0 0 -15]; % obstacle 3
-dir = sign(speed);
-
-safeR = isfield(planner, 'safeRadiusDObstacle') * planner.safeRadiusDObstacle ...
-      + ~isfield(planner, 'safeRadiusDObstacle') * planner.rn;
-
-hObs   = gobjects(size(dynamicObstacles,1),1);
-hBubble= gobjects(size(dynamicObstacles,1),1);
-
-for k = 1:size(dynamicObstacles,1)
-    c = dynamicObstacles(k,:);
-    
-    hObs(k) = plot3(NaN, NaN, NaN, 'ro', 'MarkerFaceColor','r', 'MarkerSize',6);
-    
-    hBubble(k) = drawOrUpdateSphere([], c, safeR);
-end
+dynamicObstacles = [];
 
 currentPath = [];   % last path returned by planner
 pathIdx     = 1;    % index of the waypoint we are currently at in currentPath
 
 for it = 1:maxIters
-
-    % Motion of the dynamic obstacles
-    for k = 1:size(dynamicObstacles,1)
-        p  = dynamicObstacles(k,:);
-        v  = speed(k,:);
-        s  = abs(v);
-        d  = dir(k,:);
-
-        % advance
-        p = p + d .* s;
-
-        % bounce logic for each axis independently
-        [p(1), d(1)] = bounce1D(p(1), d(1), s(1), limits(1,1), limits(1,2));
-        [p(2), d(2)] = bounce1D(p(2), d(2), s(2), limits(2,1), limits(2,2));
-        [p(3), d(3)] = bounce1D(p(3), d(3), s(3), limits(3,1), limits(3,2));
-
-        dynamicObstacles(k,:) = p;
-        dir(k,:)              = d;
-
-        % update visuals
-        set(hObs(k), 'XData', p(1), 'YData', p(2), 'ZData', p(3));
-        hBubble(k) = drawOrUpdateSphere(hBubble(k), p, safeR);
-    end
-
     planner = tick(dynamicObstacles, q_now, planner);
 
     [path, goalHit, pathFound, planner] = generatePath(planner);
@@ -115,7 +88,7 @@ for it = 1:maxIters
 
         if ~isempty(path) && size(path,1) >= 2
 
-            diffs = path - q_now;           % Nx3
+            diffs = path(:,1:3) - q_now(1:3);           % Nx3
             d2    = sum(diffs.^2, 2);       % squared distances
             [~, k] = min(d2);               % index of closest waypoint
     
@@ -134,18 +107,40 @@ for it = 1:maxIters
             end
         end
     end
-
+    
     % move one step along currentPath
     if ~isempty(currentPath)
         if pathIdx < size(currentPath,1)
+            oldIdx = pathIdx;               % previous waypoint index
             pathIdx = pathIdx + 1;          % advance one node
+
+            q_prev = currentPath(oldIdx,:);     % previous robot pose
+            q_now  = currentPath(pathIdx,:);    % new robot pose
+
+            trail = [trail; q_now];
+            dubSeg = connect(planner.conn, q_prev, q_now);
+
+            if ~isempty(dubSeg) && ~isnan(dubSeg{1}.Length)
+                dist = dubSeg{1}.Length;
+                s = linspace(0, dist, 50);
+                states = interpolate(dubSeg{1}, s);
+
+                % accumulate sampled Dubins points
+                dubinsTrail = [dubinsTrail; states(:,1:3)];
+            end
+
+        else
+            q_now = currentPath(pathIdx,:);
         end
-        q_now = currentPath(pathIdx,:);     % new robot pose
-        trail = [trail; q_now];
     end
 
     % update visuals
     set(hTree,  'XData', tree(:,1), 'YData', tree(:,2), 'ZData', tree(:,3));
+    if ~isempty(dubinsTrail)
+        set(hDubins, 'XData', dubinsTrail(:,1), ...
+                     'YData', dubinsTrail(:,2), ...
+                     'ZData', dubinsTrail(:,3));
+    end
 
     set(hTrail, 'XData', trail(:,1), 'YData', trail(:,2), 'ZData', trail(:,3));
     set(hPos,   'XData', q_now(1),  'YData', q_now(2),  'ZData', q_now(3));
@@ -162,7 +157,6 @@ for it = 1:maxIters
     end
 end
 
-% Plot the FMT tree
 E = planner.E; V = planner.V;
 
 if size(E,1) <= 5000
@@ -179,42 +173,13 @@ if size(E,1) <= 5000
     Y = [p1(:,2)'; p2(:,2)'];
     Z = [p1(:,3)'; p2(:,3)'];
     
-    % Draw all segments
+    % Draw all segments in one call
     line(X, Y, Z, ...
-         'Color',    [1 0 0], ...
+         'Color',    [1 0 0], ...  % light gray
          'LineWidth', 0.5);
 
     plot3(trail(:,1),trail(:,2),trail(:,3),'g-','LineWidth',2);
     
     xlabel('X (m)'); ylabel('Y (m)'); zlabel('Z (m)');
     axis equal
-end
-
-
-function h = drawOrUpdateSphere(h, center, radius)
-% Draws (or updates) a sphere centered at 'center' with 'radius'.
-% If h is empty, creates a new surf; otherwise updates X/Y/Z of existing one.
-
-    n = 24;  % mesh density
-    [X,Y,Z] = sphere(n);
-    X = center(1) + radius * X;
-    Y = center(2) + radius * Y;
-    Z = center(3) + radius * Z;
-
-    if isempty(h) || ~isvalid(h)
-        h = surf(X, Y, Z, ...
-            'EdgeColor', 'none');
-    else
-        set(h, 'XData', X, 'YData', Y, 'ZData', Z);
-    end
-end
-
-function [x, d] = bounce1D(x, d, stepMag, xmin, xmax)
-% Bounce a 1D coordinate x inside [xmin,xmax] with direction d in {-1,+1}.
-    if stepMag==0, return; end
-    if x >= xmax
-        x = xmax; d = -1;
-    elseif x <= xmin
-        x = xmin; d = +1;
-    end
 end
