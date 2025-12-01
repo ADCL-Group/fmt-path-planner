@@ -21,6 +21,7 @@ function S = setCurrentPose(q, S)
     % If it's far, insert the current pose as a new vertex
     insertThresh = S.rn;                    % tunable
     if isempty(iNear) || dNear > insertThresh
+        % Insert a new root node at current pose
         newIdx = size(S.V,1) + 1;
 
         S.V(newIdx, :)   = q;
@@ -45,16 +46,16 @@ function S = setCurrentPose(q, S)
         S.N = newIdx;
 
     else
+        % Re-root at an existing nearby node
         newRoot = iNear;
 
         if newRoot ~= oldRoot
             S = reversePathToRoot(S, newRoot, oldRoot);
             S.rootIdx = newRoot;
-            S.cost(newRoot) = 0;   % baseline
         end
         
-        S.parent(S.rootIdx) = 0;      % root has no parent
-        S.cost(S.rootIdx)   = 0;
+        S.parent(S.rootIdx) = 0; % root has no parent
+        S.cost(S.rootIdx) = 0;
         S.state(S.rootIdx) = 1; % Open
         
         % S.isOpen(:) = false;
@@ -66,8 +67,8 @@ function S = setCurrentPose(q, S)
 
     if ~isfield(S, 'rewireRootList'), S.rewireRootList = []; end
 
-    % 3) Recompute subtree costs from the new root and try local rewiring
-    S = recalcChildrenCost(S.rootIdx, S);
+    % Recompute subtree costs from the new root and try local rewiring
+    S = recalcChildrenCost(S.rootIdx, S);  % full recompute
     S = rewireFromRoot2(S);
 
     S.lastRootIdx = S.rootIdx;
@@ -76,7 +77,7 @@ end
 function S = reversePathToRoot(S, newRoot, oldRoot)
     % Reverse parent pointers along the unique path from newRoot up to oldRoot,
     % so that newRoot becomes the tree root (parent==0) and the old root becomes
-    % a descendant. Works even if the path is longer than one edge.
+    % a descendant.
     prev = 0;
     cur  = newRoot;
 
@@ -100,3 +101,5 @@ function S = reversePathToRoot(S, newRoot, oldRoot)
         end
     end
 end
+
+
