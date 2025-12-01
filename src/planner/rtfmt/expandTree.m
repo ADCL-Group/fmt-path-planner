@@ -14,12 +14,21 @@ function S = expandTree(S)
             S.XNear(end) = [];                          % pop last
         
             YNear = nearStates(x, 1, S);                % neighbors with state==Open
-            [yMin, yCost] = argMinCost(x, YNear, false, S);
-            if ~isempty(yMin)
-                % Check fixed-obs free: straight or Dubins + occupancy tube
-                isCFixed = isEdgeFixedFree(yMin, x, S);
-                isCNodeOK = ~S.dynamicObstructed(x); %THIS IS NEW
-                if (S.cost(yMin) < inf) && isCFixed && isCNodeOK && ~isDescendant(yMin, x, S) && (x ~= yMin)
+            % [yMin, yCost] = argMinCost(x, YNear, false, S);
+            % if ~isempty(yMin)
+            %     % Check fixed-obs free: straight or Dubins + occupancy tube
+            %     isCFixed = isEdgeFixedFree(yMin, x, S);
+            %     isCNodeOK = ~S.dynamicObstructed(x); %THIS IS NEW
+            %     if (S.cost(yMin) < inf) && isCFixed && isCNodeOK && ~isDescendant(yMin, x, S) && (x ~= yMin)
+            %         S = addChild(x, yMin, yCost, S);
+            %     end
+            % end
+
+            [yMin, yCost, isCFixed] = selectBestParent(x, YNear, S);
+            if ~isempty(yMin) && isCFixed
+                isCNodeOK = ~S.dynamicObstructed(x);
+                if (S.cost(yMin) < inf) && isCNodeOK && ...
+                   ~isDescendant(yMin, x, S) && (x ~= yMin)
                     S = addChild(x, yMin, yCost, S);
                 end
             end
