@@ -1,5 +1,9 @@
 function [isValid, dist, interp] = isTrajValid(conn, map, state1, state2, anObst)
 
+    isValid = false;
+    dist = Inf;
+    interp  = [];
+
     if nargin < 5 || isempty(anObst)
         anObst = [];   % default: no analytical obstacles
     end
@@ -11,7 +15,6 @@ function [isValid, dist, interp] = isTrajValid(conn, map, state1, state2, anObst
     if isnan(dist)
         % in case the distance between 2 states is NaN then set
         % motion invalid
-        isValid = false;
         return
     end
 
@@ -30,8 +33,6 @@ function [isValid, dist, interp] = isTrajValid(conn, map, state1, state2, anObst
         insideAna = isInsideObstacles(intposes(:,1:3), anObst);  % N x 1 logical
         if any(insideAna)
             % Trajectory intersects analytic obstacle → invalid
-            isValid = false;
-            dist    = Inf;
             return;
         end
     end
@@ -56,8 +57,7 @@ function [isValid, dist, interp] = isTrajValid(conn, map, state1, state2, anObst
         isValid = true;
         interp = intposes;
     else
-        isValid = false;
-        dist = Inf;
-        interp = [];
+        % Invalid
+        return;
     end
 end
