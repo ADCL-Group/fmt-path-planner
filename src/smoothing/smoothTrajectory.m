@@ -41,8 +41,8 @@ function [trajSmooth, waypoints, speed] = smoothTrajectory(flightParams, bounds,
               'Both forward‐skip and backward‐skip failed.');
             % pack rawTraj into a navPath
             shortPath = navPath(ss);
-            append(shortPath, wpts);
-            trajSmooth = wpts;
+            append(shortPath, rawTraj);
+            trajSmooth = rawTraj;
         end
     end
     
