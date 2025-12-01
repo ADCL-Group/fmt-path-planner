@@ -1,18 +1,25 @@
-function S = rt_fmt_planner(map, limits, start, goal, varargin)
+function S = rt_fmt_planner(map, limits, start, goal, rn, varargin)
 
 p = inputParser;
 p.FunctionName = mfilename;
-addRequired(p, 'map');                       %#ok<*ADDREQ>
-addRequired(p, 'limits');                    % [xmin xmax; ymin ymax] (or similar)
-addRequired(p, 'start');                     % [x y]
-addRequired(p, 'goal');                      % [x y]
+
+% Required
+addRequired(p, 'map');
+addRequired(p, 'limits');
+addRequired(p, 'start');
+addRequired(p, 'goal');
+addRequired(p, 'rn', @(x) isscalar(x) && x > 0 && isfinite(x));
+
+% Optional name-value params
 addParameter(p, 'N', [], @(x) isempty(x) || (isscalar(x) && x >= 0 && isfinite(x)));
 addParameter(p, 'w', 0, @(x) isscalar(x) && isfinite(x));
 addParameter(p, 'goalRadius', NaN, @(x) isscalar(x) && (isnan(x) || (x >= 0 && isfinite(x))));
 addParameter(p, 'expandTreeRate', 32, @(x) isscalar(x) && x > 0 && isfinite(x));
 addParameter(p, 'safeRadiusDObstacle', NaN, @(x) isscalar(x) && (isnan(x) || (x >= 0 && isfinite(x))));
+addParameter(p, 'flightParams', [], ...
+    @(x) isempty(x) || (isnumeric(x) && isvector(x) && numel(x) >= 4));
 
-parse(p, map, limits, start, goal, varargin{:});
+parse(p, map, limits, start, goal, rn, varargin{:});
 opts = p.Results;
 
 if isempty(opts.N)
@@ -20,6 +27,17 @@ if isempty(opts.N)
 end
 
 S = struct();
+
+if ~isempty(opts.flightParams)
+    % Create the Dubins connector
+    fp = opts.flightParams;
+    S.conn = uavDubinsConnection( ...
+        'MaxRollAngle',        fp(1), ...
+        'AirSpeed',            fp(2), ...
+        'FlightPathAngleLimit', fp(3:4));
+else
+    S.conn = [];
+end
 
 % Planner params
 S.map            = map;
@@ -31,8 +49,8 @@ S.N              = opts.N + 2;   % start/goal added inside sampler
 S.expandTreeRate = opts.expandTreeRate;
 
 % Sample free space
-S.V  = sampleFree(S.map, S.limits, S.start, S.goal, opts.N,[]);                                         
-S.rn = optimalRadius(size(S.V,1), S.limits, S.w);
+S.V  = sampleFree(S.map, S.limits, S.start, S.goal, opts.N, []);                                         
+S.rn = opts.rn;
 
 if isnan(opts.goalRadius)
     S.goalRadius = S.rn/2;
@@ -70,8 +88,9 @@ S.cost(S.startIdx) = 0;
 
 % Lists used by RT updates (blocked nodes, checked path, etc.)
 S.blocked        = false(size(S.V,1),1);   % dynamic obstacle mask
-S.blocked        = false(size(S.V,1),1);   % dynamic obstacle mask
 S.openNew        = false(size(S.V,1),1);
 S.closedToOpen   = false(size(S.V,1),1);
-S.checkedPath   = false(size(S.V,1),1);
+S.checkedPath    = false(size(S.V,1),1);
 S.checkedPathCandidates = [];
+
+end
