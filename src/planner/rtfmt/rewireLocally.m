@@ -13,26 +13,19 @@ function S = rewireLocally(S)
         return
     end
 
-    % S.blocked(x) = false; % we’ll restore if fails
-    % if ~isObstructed(x, S)
-        YNear = nearStates(x, [1 3], S); % Open+Closed
-        [yMin, yCost] = argMinCost(x, YNear, true, S);
-        if ~isempty(yMin)
-            isCFixed = isEdgeFixedFree(yMin, x, S);
-            if S.cost(yMin) < inf && isCFixed && ~isDescendant(yMin, x, S) && x ~= yMin
-                S.parent(x) = yMin; 
-                S.cost(x) = yCost;                           % “addChildUpdateParent” equivalent  
-                S = recalcChildrenCost(x, S);
-                S.blocked(x) = false;
-            else
-                % S.blocked(x) = true; % still blocked
-            end
-        else
-            % S.blocked(x) = true; % still blocked
+    YNear = nearStates(x, [1 3], S); % Open+Closed
+
+    [yMin, yCost, isCFixed] = selectBestParent(x, YNear, S);
+    if ~isempty(yMin) && isCFixed
+        if S.cost(yMin) < inf && ~isDescendant(yMin, x, S) && x ~= yMin
+            oldSeedCost = S.cost(x);
+
+            S.parent(x) = yMin; 
+            S.cost(x) = yCost;                           % “addChildUpdateParent” equivalent  
+            S = recalcChildrenCost(x, S, oldSeedCost);
+            S.blocked(x) = false;
         end
-    % else
-        % S.blocked(x) = true;
-    % end
+    end
 end
 
     
