@@ -1,8 +1,14 @@
-function [traj, Ecell, Vcell] = FMTWaypoints(map3D, limits, wpts, N, rn, goalRadius, w, flightParams)
+function [traj, Ecell, Vcell] = FMTWaypoints(map3D, limits, wpts, N, rn, goalRadius, w, flightParams, anObst)
     % Run FMT* over a sequence of waypoints
 
-    if nargin < 7
-        w = 0;
+    if nargin < 9 || isempty(anObst)
+        anObst = [];           % default: no analytic obstacles
+    end
+    if nargin < 8 || isempty(flightParams)
+        flightParams = [];     % default: no Dubins, straight-line
+    end
+    if nargin < 7 || isempty(w)
+        w = 0;                 % default: zero weight
     end
 
     d = size(limits,1);
@@ -23,11 +29,7 @@ function [traj, Ecell, Vcell] = FMTWaypoints(map3D, limits, wpts, N, rn, goalRad
     for i = 1:numSeg
         goal  = wpts(i+1,:);
         try
-            if nargin == 8
-                [traj, E, V] = FMT(map3D, limits, start, goal, N, rn, goalR(i), w, flightParams);
-            else
-                [traj, E, V] = FMT(map3D, limits, start, goal, N, rn, goalR(i), w);
-            end
+            [traj, E, V] = FMT(map3D, limits, start, goal, N, rn, goalR(i), w, flightParams, anObst);
         catch ME
             fprintf("Cannot connect waypoint %d to %d\n",i,i+1);
             disp(ME.message)
@@ -54,7 +56,6 @@ function [traj, Ecell, Vcell] = FMTWaypoints(map3D, limits, wpts, N, rn, goalRad
         psi = computeHeading(trajAll);
         traj = [trajAll, psi];
     elseif d == 4
-        % traj = [trajAll(:,1:3), psi];
         traj = trajAll;
     end
 end

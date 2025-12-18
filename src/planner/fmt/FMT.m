@@ -1,6 +1,17 @@
-function [traj, E, V] = FMT(map, limits, start, goal, N, rn, goalRadius, w, flightParams)
+function [traj, E, V] = FMT(map, limits, start, goal, N, rn, goalRadius, w, flightParams, anObst)
+
+    if nargin < 10 || isempty(anObst)
+        anObst = [];           % default: no analytic obstacles
+    end
+    if nargin < 9 || isempty(flightParams)
+        flightParams = [];     % default: no Dubins, straight-line
+    end
+    if nargin < 8 || isempty(w)
+        w = 0;                 % default: zero weight
+    end
+
     % Fast Marching Tree Algorithm (FMT∗)
-    V = sampleFree(map, limits, start, goal, N);
+    V = sampleFree(map, limits, start, goal, N, anObst);
     allIdx  = 1:size(V,1);
     
     start_idx = find(ismember(V, start, 'rows'));
@@ -25,12 +36,14 @@ function [traj, E, V] = FMT(map, limits, start, goal, N, rn, goalRadius, w, flig
     vertexStore.neighbors{start_idx} = Nz_idx;
     vertexStore.cost(start_idx) = 0;
 
-    if nargin == 9
+    if ~isempty(flightParams)
         % Create the Dubins connector
         conn = uavDubinsConnection( ...
             'MaxRollAngle', flightParams(1), ...
             'AirSpeed', flightParams(2), ...
             'FlightPathAngleLimit', flightParams(3:4));
+    else
+        conn = [];
     end
 
     freeThresh = map.FreeThreshold;
@@ -51,7 +64,7 @@ function [traj, E, V] = FMT(map, limits, start, goal, N, rn, goalRadius, w, flig
             end
             costs_y = [vertexStore.cost(Ynear)];
 
-            if nargin == 9
+            if ~isempty(conn)
                 % Vectorized Dubins primitives
 
                 % Compute heading difference penalty
@@ -67,6 +80,15 @@ function [traj, E, V] = FMT(map, limits, start, goal, N, rn, goalRadius, w, flig
                 pathCosts = costMetric(V(Ynear,:), V(xi,:), w);
                 cost = costs_y + pathCosts;
                 [intposes, totalCost, k] = interpLine(res, V(Ynear,:), V(xi,:), cost);
+            end
+
+            % Analytic obstacles first (fast reject)
+            if ~isempty(anObst)
+                insideAna = isInsideObstacles(intposes(:,1:3), anObst);
+                if any(insideAna)
+                    % Edge intersects analytic obstacle: reject and skip map
+                    continue;
+                end
             end
 
             % Occupancy check
@@ -107,7 +129,6 @@ function [traj, E, V] = FMT(map, limits, start, goal, N, rn, goalRadius, w, flig
     end
     
     % Build the tree
-
     childIdx = find(vertexStore.parent > 0); % Find all vertex xi that got a parent
     E = [vertexStore.parent(childIdx), childIdx];
     
