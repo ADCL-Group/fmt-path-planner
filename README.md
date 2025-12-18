@@ -98,9 +98,21 @@ These files use a function that loads a real-world building model from an OpenSt
 ```
 where `0.1` m is the map resolution, and `20`, `35` m are the plan/smooth inflation distances. The planning and smoothing steps are identical to the custom-map scenario.
 
+## Real-Time Fast Marching Trees (RT-FMT)
+
+This repository also includes an implementation of Real-Time Fast Marching Trees (RT-FMT), a real-time variant of the FMT algorithm designed for dynamic environments.
+
+The RT-FMT algorithm follows the formulation proposed by Silveira et al. (ICRA 2023) and is adapted here for MATLAB. The original reference implementation was provided in C#; this repository contains a MATLAB port with structural and performance-oriented modifications.
+
+See [`docs/rtfmt.md`](docs/rtfmt.md) for algorithm details, usage instructions, and examples.
+
 ## References
 
 1. Janson, L. & Pavone, M. (2013). *Fast Marching Trees: A Fast Marching Sampling-Based Method for Optimal Motion Planning in Many Dimensions*. Int. Symp. on Robotics Research.
    (PDF: https://stanfordasl.github.io/wp-content/papercite-data/pdf/Janson.Pavone.ISRR13.pdf)  
 2. MathWorks. (n.d.). *Motion Planning with RRT for Fixed-Wing UAV*.  
    https://www.mathworks.com/help/uav/ug/motion-planning-with-rrt-for-fixed-wing-uav.html
+3. Silveira, J., Cabral, K., Givigi, S., & Marshall, J. A. (2023).  
+   *Real-Time Fast Marching Tree for Mobile Robot Motion Planning in Dynamic Environments*.  
+   IEEE International Conference on Robotics and Automation (ICRA).  
+   https://doi.org/10.1109/ICRA48891.2023.10160595
