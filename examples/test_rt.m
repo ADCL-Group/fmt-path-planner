@@ -3,7 +3,8 @@ rng(1,"twister");
 setupPath;
 
 result = buildOccupancyMap("data/osm/boston.osm", 0.1, 20, 35);
-map = result.maps{3};
+origMap = result.maps{1};
+planMap = result.maps{3};
 mapLimits = result.mapLimits;
 
 limits = [mapLimits; 0 2*pi];
@@ -20,14 +21,14 @@ goalRadius = rn/2; % radius of the goal area around the goal wpt
 close all; clc
 
 rng(1,"twister");
-planner = rt_fmt_planner(map, limits(1:3,:), start, goal, rn, ...
+planner = rt_fmt_planner(planMap, limits(1:3,:), start, goal, rn, ...
     'N', N, ...
     'w', 0, ...
     'expandTreeRate', 32, ...
     'safeRadiusDObstacle', 100, ...
     'goalRadius', goalRadius);
 
-figure; show(map); 
+figure; show(origMap); 
 hold on; grid on; axis equal
 hTree = plot3(NaN,NaN,NaN,'r-','LineWidth',1);    % current planned (spliced) path
 hTrail= plot3(NaN,NaN,NaN,'g-','LineWidth',2);    % committed trail
@@ -167,7 +168,7 @@ E = planner.E; V = planner.V;
 
 if size(E,1) <= 5000
     figure;
-    show(map); alpha(0.3);
+    show(planMap); alpha(0.3);
     hold on;
     
     % Extract endpoints
